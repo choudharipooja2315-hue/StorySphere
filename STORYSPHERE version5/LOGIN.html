@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login – StorySphere</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial;
+}
+
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg"); 
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+}
+
+body.dark{
+background:#121212;
+color:#eee;
+}
+
+.login-page{
+display:flex;
+flex-direction:column;
+align-items:center;
+gap:30px;
+margin-top:60px;
+}
+
+.login-logo{
+width:120px;
+height:auto;
+object-fit:contain;
+}
+
+.login-card{
+background:white;
+width:420px;
+display:flex;
+border-radius:12px;
+box-shadow:0 10px 30px rgba(0,0,0,.2);
+overflow:hidden;
+}
+
+body.dark .login-card{
+background:#1e1e1e;
+}
+
+.login-form{
+flex:2;
+padding:28px;
+display:flex;
+flex-direction:column;
+gap:14px;
+}
+
+.login-form input{
+width:100%;
+padding:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+body.dark .login-form input{
+background:#2a2a2a;
+color:#eee;
+border:1px solid #555;
+}
+
+.input-wrapper{
+position:relative;
+}
+
+.eye{
+position:absolute;
+right:10px;
+top:50%;
+transform:translateY(-50%);
+cursor:pointer;
+}
+
+.login-btn{
+padding:10px;
+background:#7A3EB1;
+color:white;
+border:none;
+border-radius:20px;
+cursor:pointer;
+}
+
+.login-btn:disabled{
+opacity:0.6;
+cursor:not-allowed;
+}
+
+.login-msg{
+text-align:center;
+font-size:14px;
+color:#d32f2f;
+}
+
+body.dark .login-msg{
+color:#ff6b6b;
+}
+
+.login-side{
+flex:1;
+background:#4B1B6D;
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="login-page">
+
+<img src="/ASSETS/IMAGES/LOGO.jpeg" class="login-logo">
+
+<div class="login-card">
+
+<div class="login-form">
+
+<h2> Login </h2>
+
+<form id="loginForm">
+
+<input id="loginUser" placeholder="Username or Email" required>
+
+<div class="input-wrapper">
+<input id="loginPass" type="password" placeholder="Password" required>
+<span class="eye" onclick="togglePassword('loginPass')">👁</span>
+</div>
+
+<button class="login-btn" type="submit">Login</button>
+
+<p id="loginMsg" class="login-msg"></p>
+
+</form>
+
+</div>
+
+<div class="login-side">
+<p>
+New user?
+<a href="/reader-register" style="color:white;">
+Register here
+</a>
+</p>
+</div>
+
+</div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    const form = document.getElementById("loginForm");
+    const msg = document.getElementById("loginMsg");
+    const btn = document.querySelector(".login-btn");
+
+    // Theme restore
+    const savedTheme = localStorage.getItem("theme");
+    if(savedTheme === "dark") document.body.classList.add("dark");
+
+    form.addEventListener("submit", async function(e){
+        e.preventDefault();
+        msg.textContent = "Authenticating...";
+        btn.disabled = true;
+
+        try {
+            const res = await fetch("http://127.0.0.1:5000/api/login", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username: document.getElementById("loginUser").value.trim(),
+                    password: document.getElementById("loginPass").value
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                msg.textContent = data.error || "Login failed";
+                btn.disabled = false;
+                return;
+            }
+
+            // Save UI state
+            localStorage.setItem("logged_in", "true");
+            localStorage.setItem("is_writer", data.is_writer);
+
+            // Correct redirect (same origin as backend)
+            if (data.is_writer) {
+                window.location.replace("http://127.0.0.1:5000/writer-dashboard");
+            } else {
+                window.location.replace("http://127.0.0.1:5000/reader-dashboard");
+            }
+
+        } catch (err) {
+            console.error(err);
+            msg.textContent = "Server error. Check Flask.";
+            btn.disabled = false;
+        }
+    });
+});
+
+// Password toggle
+function togglePassword(id){
+    const input = document.getElementById(id);
+    input.type = input.type === "password" ? "text" : "password";
+}
+</script>
+
+</body>
+</html>

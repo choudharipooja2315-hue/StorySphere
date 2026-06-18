@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Reader Dashboard – StorySphere</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial,sans-serif;
+}
+
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+color:#111;
+padding-bottom:70px;
+}
+
+body.dark{
+background:#121212;
+color:white;
+}
+
+.header{
+height:60px;
+background:#4B1B6D;
+color:white;
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 20px;
+position:fixed;
+top:0;
+width:100%;
+z-index:1000;
+}
+
+.logo-area{
+display:flex;
+align-items:center;
+gap:10px;
+font-size:20px;
+font-weight:600;
+}
+
+.logo-area img{
+width:32px;
+height:32px;
+}
+
+.back-arrow{
+font-size:22px;
+cursor:pointer;
+}
+
+.header-right{
+display:flex;
+align-items:center;
+gap:20px;
+}
+
+.write-btn{
+cursor:pointer;
+font-weight:600;
+}
+
+.profile-area{
+position:relative;
+}
+
+.profile-area img{
+width:36px;
+height:36px;
+border-radius:50%;
+cursor:pointer;
+object-fit:cover;
+}
+
+.dropdown{
+position:absolute;
+right:0;
+top:50px;
+background:white;
+color:black;
+width:200px;
+padding:15px;
+border-radius:10px;
+box-shadow:0 5px 20px rgba(0,0,0,.3);
+display:none;
+}
+
+.dropdown-item{
+padding:8px;
+cursor:pointer;
+}
+
+.dropdown-item:hover{
+background:#eee;
+}
+
+.container{
+padding-top:70px;
+padding-left:20px;
+padding-right:20px;
+}
+
+.section{
+margin-bottom:30px;
+}
+
+.books{
+display:flex;
+gap:15px;
+overflow-x:auto;
+}
+
+.book-card{
+min-width:140px;
+background:white;
+border-radius:10px;
+padding:8px;
+cursor:pointer;
+}
+
+.book-card img{
+width:100%;
+height:180px;
+object-fit:cover;
+border-radius:8px;
+}
+
+.book-title{
+font-size:14px;
+margin-top:5px;
+font-weight:600;
+}
+
+.book-status{
+font-size:12px;
+opacity:.7;
+}
+
+.bottom-nav{
+position:fixed;
+bottom:0;
+width:100%;
+height:60px;
+background:white;
+display:flex;
+justify-content:space-around;
+align-items:center;
+border-top:1px solid #ccc;
+}
+
+.nav-btn{
+font-size:22px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+
+<div class="logo-area">
+<span class="back-arrow" onclick="goHome()">←</span>
+<img src="/ASSETS/IMAGES/LOGO.jpeg">
+<span>StorySphere</span>
+</div>
+
+<div class="header-right">
+
+<div class="write-btn" onclick="goWrite()">Write</div>
+
+<div class="profile-area">
+
+<img id="profileImg" src="/ASSETS/IMAGES/profile.png" onclick="toggleDropdown()">
+
+<div class="dropdown" id="dropdown">
+<div class="dropdown-item" onclick="goProfile()">My Profile</div>
+<div class="dropdown-item" onclick="toggleDarkMode()">Dark Mode</div>
+<div class="dropdown-item" onclick="logout()">Logout</div>
+</div>
+
+</div>
+</div>
+</div>
+
+<div class="container">
+
+<div class="section">
+<h2>Continue Reading</h2>
+<div class="books" id="continueContainer"></div>
+</div>
+
+<div class="section">
+<h2>New Arrivals</h2>
+<div class="books" id="newContainer"></div>
+</div>
+
+</div>
+
+<div class="bottom-nav">
+<div class="nav-btn" onclick="goHome()">🏠</div>
+<div class="nav-btn" onclick="goSearch()">🔍</div>
+<div class="nav-btn" onclick="goLibrary()">📚</div>
+<div class="nav-btn" onclick="goWrite()">✍️</div>
+<div class="nav-btn" onclick="goNotifications()">🔔</div>
+</div>
+
+<script>
+
+/* ===== SAME ORIGIN ===== */
+const API = "";
+
+/* ===== AUTH CHECK ===== */
+async function checkAuth(){
+    try{
+        const res = await fetch("/api/me",{credentials:"include"});
+        if(res.status === 401){
+            window.location.replace("/login");
+        }
+    }catch{
+        window.location.replace("/login");
+    }
+}
+
+/* ===== LOAD USER ===== */
+async function loadUser(){
+    try{
+        const res = await fetch("/api/profile",{credentials:"include"});
+
+        if(res.status === 401){
+            window.location.replace("/login");
+            return;
+        }
+
+        const user = await res.json();
+        const avatar=document.getElementById("profileImg");
+
+        if(user.profile_pic){
+            avatar.src = "/uploads/profile_pics/"+user.profile_pic;
+        }else{
+            const letter=user.username.charAt(0).toUpperCase();
+            avatar.src="https://ui-avatars.com/api/?name="+letter+"&background=7A3EB1&color=fff";
+        }
+
+    }catch{
+        window.location.replace("/login");
+    }
+}
+
+/* ===== LOAD STORIES ===== */
+async function loadStories(){
+    try{
+        const newRes = await fetch("/api/stories",{credentials:"include"});
+        const continueRes = await fetch("/api/continue-reading",{credentials:"include"});
+
+        if(newRes.status === 401 || continueRes.status === 401){
+            window.location.replace("/login");
+            return;
+        }
+
+        const newData = await newRes.json();
+        const continueData = await continueRes.json();
+
+        const continueContainer=document.getElementById("continueContainer");
+        const newContainer=document.getElementById("newContainer");
+
+        continueContainer.innerHTML="";
+        newContainer.innerHTML="";
+
+        /* NEW ARRIVALS */
+        if(Array.isArray(newData)){
+            newData.forEach(story=>{
+                const img=story.cover_image
+                ?"/uploads/covers/"+story.cover_image
+                :"/ASSETS/IMAGES/placeholder.png";
+
+                const card=document.createElement("div");
+                card.className="book-card";
+
+                card.innerHTML=`
+                <img src="${img}">
+                <div class="book-title">${story.title}</div>
+                <div class="book-status">${story.progress || ""}</div>
+                `;
+
+                card.onclick=function(){
+                    localStorage.setItem("current_story_id",story.id);
+                    location.href="/story-details";
+                };
+
+                newContainer.appendChild(card);
+            });
+        }
+
+        /* CONTINUE READING */
+        if(Array.isArray(continueData)){
+            continueData.forEach(story=>{
+                const img=story.cover_image
+                ?"/uploads/covers/"+story.cover_image
+                :"/ASSETS/IMAGES/placeholder.png";
+
+                const card=document.createElement("div");
+                card.className="book-card";
+
+                card.innerHTML=`
+                <img src="${img}">
+                <div class="book-title">${story.title}</div>
+                <div class="book-status">Continue</div>
+                `;
+
+                card.onclick=function(){
+                    localStorage.setItem("current_story_id",story.story_id);
+                    localStorage.setItem("last_chapter_id",story.chapter_id);
+                    location.href="/reader-reading";
+                };
+
+                continueContainer.appendChild(card);
+            });
+        }
+
+    }catch{
+        window.location.replace("/login");
+    }
+}
+
+/* ===== DROPDOWN FIX (MAIN ISSUE) ===== */
+function toggleDropdown(){
+    const dropdown = document.getElementById("dropdown");
+
+    if(dropdown.style.display === "block"){
+        dropdown.style.display = "none";
+    } else {
+        dropdown.style.display = "block";
+    }
+}
+
+/* CLOSE DROPDOWN WHEN CLICK OUTSIDE */
+document.addEventListener("click", function(e){
+    const profile = document.querySelector(".profile-area");
+    const dropdown = document.getElementById("dropdown");
+
+    if(profile && !profile.contains(e.target)){
+        dropdown.style.display = "none";
+    }
+});
+
+/* ===== NAV ===== */
+function goHome(){ location.href="/reader-dashboard"; }
+function goSearch(){ location.href="/search"; }
+function goLibrary(){ location.href="/library"; }
+function goNotifications(){ location.href="/notifications"; }
+
+/* IMPORTANT: adjust if needed */
+function goProfile(){ location.href="/reader-profile"; }
+
+/* ===== LOGOUT ===== */
+function logout(){
+fetch("/api/logout",{method:"POST",credentials:"include"})
+.then(()=>{
+localStorage.clear();
+window.location.replace("/login");
+});
+}
+
+/* ===== WRITE ===== */
+async function goWrite(){
+try{
+const res=await fetch("/api/me",{credentials:"include"});
+const user=await res.json();
+
+if(user.is_writer){
+location.href="/writer-dashboard";
+}else{
+location.href="/register";
+}
+}catch{
+location.href="/register";
+}
+}
+
+/* ===== INIT ===== */
+checkAuth();
+loadUser();
+loadStories();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Writer Profile – StorySphere</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial;
+}
+
+body{
+background-image:url("ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-attachment:fixed;
+padding-bottom:70px;
+color:#111;
+}
+
+body.dark{
+background:#121212;
+color:white;
+}
+
+/* HEADER */
+
+.header{
+height:60px;
+background:#4B1B6D;
+color:white;
+display:flex;
+align-items:center;
+gap:12px;
+padding:0 20px;
+}
+
+.back{
+font-size:20px;
+cursor:pointer;
+}
+
+/* PROFILE TOP */
+
+.profile-top{
+text-align:center;
+padding:30px 20px;
+}
+
+.profile-img{
+width:120px;
+height:120px;
+border-radius:50%;
+object-fit:cover;
+border:4px solid white;
+cursor:pointer;
+}
+
+.pen-name{
+font-size:24px;
+margin-top:10px;
+font-weight:600;
+}
+
+.username{
+opacity:.8;
+margin-top:3px;
+}
+
+.stats{
+display:flex;
+justify-content:center;
+gap:40px;
+margin-top:15px;
+font-size:14px;
+}
+
+.stat strong{
+display:block;
+font-size:18px;
+}
+
+/* ABOUT */
+
+.about{
+margin-top:20px;
+padding:20px;
+max-width:600px;
+margin-left:auto;
+margin-right:auto;
+}
+
+textarea{
+width:100%;
+height:90px;
+border-radius:8px;
+border:none;
+padding:10px;
+resize:none;
+}
+
+/* STORIES */
+
+.stories{
+padding:20px;
+}
+
+.story-grid{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+gap:15px;
+margin-top:15px;
+}
+
+.story-card{
+background:white;
+border-radius:10px;
+padding:8px;
+cursor:pointer;
+}
+
+body.dark .story-card{
+background:#1e1e1e;
+}
+
+.story-card img{
+width:100%;
+height:200px;
+object-fit:cover;
+border-radius:8px;
+}
+
+.story-title{
+font-size:14px;
+margin-top:5px;
+font-weight:600;
+}
+
+/* NAV */
+
+.bottom-nav{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+display:flex;
+justify-content:space-around;
+padding:12px 0;
+border-top:1px solid #ccc;
+}
+
+.nav-item{
+font-size:22px;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+
+<span class="back" onclick="goDashboard()">←</span>
+
+<img src="ASSETS/IMAGES/LOGO.jpeg" height="32">
+
+<span>StorySphere</span>
+
+</div>
+
+<div class="profile-top">
+
+<img id="profileImg" class="profile-img" src="ASSETS/IMAGES/profile.png">
+
+<input type="file" id="imgInput" hidden>
+
+<div class="pen-name" id="penName">Writer</div>
+
+<div class="username" id="username">@username</div>
+
+<div class="stats">
+
+<div class="stat">
+<strong id="followers">0</strong>
+Followers
+</div>
+
+<div class="stat">
+<strong id="storyCount">0</strong>
+Stories
+</div>
+
+</div>
+
+</div>
+
+<div class="about">
+
+<h3>About</h3>
+
+<textarea id="bio" placeholder="Tell readers about yourself..."></textarea>
+
+<button onclick="saveProfile()" style="margin-top:10px;padding:8px 16px;background:#7A3EB1;color:white;border:none;border-radius:6px;">
+Save
+</button>
+
+</div>
+
+<div class="stories">
+
+<h3>Your Stories</h3>
+
+<div id="storyContainer" class="story-grid"></div>
+
+</div>
+
+<div class="bottom-nav">
+
+<div class="nav-item" onclick="goDashboard()">🏠</div>
+<div class="nav-item" onclick="goReader()">📚</div>
+<div class="nav-item" onclick="goCreate()">✍️</div>
+
+</div>
+
+<script>
+
+const API="http://127.0.0.1:5000";
+
+/* SESSION CHECK */
+
+async function checkSession(){
+
+try{
+
+const res = await fetch(API+"/api/me",{credentials:"include"});
+
+if(res.status===401){
+window.location.href="/LOGIN.html";
+return;
+}
+
+}catch{
+
+window.location.href="/LOGIN.html";
+
+}
+
+}
+
+checkSession();
+
+/* LOAD PROFILE */
+
+async function loadProfile(){
+
+try{
+
+const res=await fetch(API+"/api/writer/profile",{credentials:"include"});
+
+if(!res.ok) return;
+
+const data=await res.json();
+
+document.getElementById("penName").innerText=data.pen_name;
+document.getElementById("username").innerText="@"+data.username;
+document.getElementById("followers").innerText=data.followers || 0;
+document.getElementById("storyCount").innerText=data.story_count || 0;
+document.getElementById("bio").value=data.bio || "";
+
+if(data.profile_pic){
+
+document.getElementById("profileImg").src =
+API+"/uploads/writer_pics/"+data.profile_pic;
+
+}else{
+
+const letter=data.username.charAt(0).toUpperCase();
+
+document.getElementById("profileImg").src =
+"https://ui-avatars.com/api/?name="+letter+"&background=7A3EB1&color=fff";
+
+}
+
+}catch{}
+
+}
+
+loadProfile();
+
+/* LOAD STORIES */
+
+async function loadStories(){
+
+const res=await fetch(API+"/api/writer/stories",{credentials:"include"});
+const stories=await res.json();
+
+const container=document.getElementById("storyContainer");
+
+container.innerHTML="";
+
+stories.forEach(s=>{
+
+const card=document.createElement("div");
+card.className="story-card";
+
+const img=s.cover_image
+?API+"/uploads/covers/"+s.cover_image
+:"ASSETS/IMAGES/placeholder.png";
+
+card.innerHTML=`
+<img src="${img}">
+<div class="story-title">${s.title}</div>
+`;
+
+container.appendChild(card);
+
+});
+
+}
+
+loadStories();
+
+/* PROFILE IMAGE CHANGE */
+
+document.getElementById("profileImg").onclick=function(){
+document.getElementById("imgInput").click();
+};
+
+document.getElementById("imgInput").onchange=function(){
+
+const file=this.files[0];
+
+if(!file) return;
+
+const reader=new FileReader();
+
+reader.onload=function(e){
+document.getElementById("profileImg").src=e.target.result;
+};
+
+reader.readAsDataURL(file);
+
+};
+
+/* SAVE PROFILE */
+
+async function saveProfile(){
+
+const bio=document.getElementById("bio").value;
+
+const form=new FormData();
+
+form.append("bio",bio);
+
+const file=document.getElementById("imgInput").files[0];
+
+if(file){
+form.append("profile_pic",file);
+}
+
+await fetch(API+"/api/writer/profile/update",{
+method:"POST",
+credentials:"include",
+body:form
+});
+
+alert("Profile updated");
+
+}
+
+/* NAVIGATION */
+
+function goDashboard(){
+window.location.href="WRITER_DASHBOARD.html";
+}
+
+function goReader(){
+window.location.href="readers/reader_dashboard.html";
+}
+
+function goCreate(){
+window.location.href="CREATE_STORY.html";
+}
+
+</script>
+
+</body>
+</html>

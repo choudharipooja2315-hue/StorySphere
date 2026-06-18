@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Search – StorySphere</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial;
+}
+
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-attachment:fixed;
+padding-bottom:70px;
+}
+
+/* HEADER */
+
+.header{
+background:#5b2a86;
+padding:12px 20px;
+display:flex;
+align-items:center;
+gap:10px;
+color:white;
+position:sticky;
+top:0;
+z-index:1000;
+}
+
+.back-arrow{
+font-size:22px;
+cursor:pointer;
+margin-right:6px;
+}
+
+.logo{
+display:flex;
+align-items:center;
+gap:10px;
+cursor:pointer;
+}
+
+.logo img{
+width:36px;
+height:36px;
+border-radius:6px;
+}
+
+.search{
+flex:1;
+max-width:400px;
+padding:10px 15px;
+border-radius:20px;
+border:none;
+outline:none;
+}
+
+/* RESULTS */
+
+.section{
+padding:20px;
+}
+
+.books{
+display:flex;
+flex-wrap:wrap;
+gap:15px;
+}
+
+.book-card{
+width:140px;
+background:white;
+border-radius:12px;
+padding:8px;
+cursor:pointer;
+box-shadow:0 3px 10px rgba(0,0,0,.15);
+}
+
+.book-card img{
+width:100%;
+height:180px;
+object-fit:cover;
+border-radius:8px;
+}
+
+.book-title{
+font-size:14px;
+font-weight:600;
+margin-top:5px;
+}
+
+.book-author{
+font-size:12px;
+opacity:.7;
+}
+
+/* NAV */
+
+.bottom-nav{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+display:flex;
+justify-content:space-around;
+padding:12px 0;
+border-top:1px solid #ddd;
+}
+
+.nav-item{
+font-size:22px;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+
+<span class="back-arrow" onclick="goHome()">←</span>
+
+<div class="logo" onclick="goHome()">
+<img src="/ASSETS/IMAGES/LOGO.jpeg">
+<span>StorySphere</span>
+</div>
+
+<input
+class="search"
+id="searchInput"
+placeholder="Search by title or author"
+>
+
+</div>
+
+<div class="section">
+
+<h3>Search Results</h3>
+
+<div class="books" id="results"></div>
+
+</div>
+
+<div class="bottom-nav">
+
+<div class="nav-item" onclick="goHome()">🏠</div>
+<div class="nav-item">🔍</div>
+<div class="nav-item" onclick="goLibrary()">📚</div>
+<div class="nav-item" onclick="goWrite()">✍️</div>
+<div class="nav-item" onclick="goNotifications()">🔔</div>
+
+</div>
+
+<script>
+
+const API="http://127.0.0.1:5000";
+
+/* SESSION CHECK */
+async function checkSession(){
+    try{
+        const res=await fetch(API+"/api/me",{ credentials:"include" });
+        if(!res.ok){
+            window.location.assign("/login");
+        }
+    }catch{
+        window.location.assign("/login");
+    }
+}
+checkSession();
+
+/* BACK BUTTON FIX */
+window.onpageshow = function(event) {
+    if (event.persisted) {
+        window.location.reload();
+    }
+};
+
+/* SEARCH */
+
+const input=document.getElementById("searchInput");
+
+input.oninput=async ()=>{
+
+const q=input.value.trim().toLowerCase();
+
+if(q.length<1){
+document.getElementById("results").innerHTML="";
+return;
+}
+
+try{
+
+const res=await fetch(API+"/api/stories",{ credentials:"include" });
+const data=await res.json();
+
+const container=document.getElementById("results");
+container.innerHTML="";
+
+if(!Array.isArray(data)) return;
+
+const filtered = data.filter(story => {
+const title = (story.title || "").toLowerCase();
+const author = (story.author || "").toLowerCase();
+return title.includes(q) || author.includes(q);
+});
+
+if(filtered.length===0){
+container.innerHTML="<p>No results found</p>";
+return;
+}
+
+filtered.forEach(story=>{
+
+const card=document.createElement("div");
+card.className="book-card";
+
+const img=story.cover_image
+?API+"/uploads/covers/"+story.cover_image
+:"/ASSETS/IMAGES/placeholder.png";
+
+card.innerHTML=`
+<img src="${img}">
+<div class="book-title">${story.title}</div>
+<div class="book-author">${story.author || "Unknown"}</div>
+`;
+
+card.onclick=()=>{
+localStorage.setItem("current_story_id",story.id);
+window.location.assign("/story-details");
+};
+
+container.appendChild(card);
+
+});
+
+}catch{
+document.getElementById("results").innerHTML="Search failed";
+}
+
+};
+
+/* NAVIGATION */
+
+function goHome(){
+window.location.assign("/reader-dashboard");
+}
+
+function goLibrary(){
+window.location.assign("/library");
+}
+
+function goNotifications(){
+window.location.assign("/notifications");
+}
+
+function goWrite(){
+
+fetch(API+"/api/me",{ credentials:"include" })
+.then(res=>res.json())
+.then(data=>{
+if(data.is_writer){
+window.location.assign("/writer-dashboard");
+}else{
+window.location.assign("/register");
+}
+})
+.catch(()=>{
+window.location.assign("/register");
+});
+
+}
+
+</script>
+
+</body>
+</html>

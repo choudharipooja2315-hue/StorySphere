@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Story Details – StorySphere</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI", Arial, sans-serif;}
+body{
+min-height:100vh;
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+color:#111;
+}
+body.dark{background:#121212;color:#eee;}
+.header{height:60px;background:#4B1B6D;display:flex;align-items:center;padding:0 20px;gap:12px;}
+.header img{height:32px;}
+.header-title{color:white;font-size:18px;font-weight:600;}
+.page{padding:30px 40px;max-width:1100px;margin:auto;}
+.back-btn{margin-bottom:20px;cursor:pointer;color:#7A3EB1;font-weight:500;}
+.story-layout{display:flex;gap:40px;}
+.story-layout img{width:240px;height:340px;object-fit:cover;border-radius:12px;}
+.story-info{flex:1;}
+.story-info h1{margin-bottom:10px;}
+.meta{margin-bottom:15px;font-size:14px;opacity:.8;}
+.description{line-height:1.6;}
+.author-card{margin-top:30px;display:flex;gap:15px;align-items:center;padding:15px;background:rgba(255,255,255,0.7);border-radius:12px;}
+body.dark .author-card{background:#1f1f1f;}
+.author-card img{width:60px;height:60px;border-radius:50%;object-fit:cover;}
+.author-name{font-weight:600;}
+.author-bio{font-size:13px;opacity:.8;margin-top:3px;}
+.button-group{display:flex;gap:16px;margin-top:20px;}
+button{padding:12px 24px;border:none;border-radius:25px;cursor:pointer;}
+.start-btn{background:#7A3EB1;color:white;}
+.library-btn{background:#eee;}
+body.dark .library-btn{background:#333;color:white;}
+.chapter-section{margin-top:40px;}
+.chapter-item{padding:12px 0;border-bottom:1px solid #ddd;cursor:pointer;}
+.chapter-item:hover{color:#7A3EB1;}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#323232;color:white;padding:12px 20px;border-radius:8px;opacity:0;transition:.3s;}
+#toast.show{opacity:1;}
+.follow-btn{margin-left:auto;padding:8px 16px;border:none;border-radius:20px;background:#7A3EB1;color:white;cursor:pointer;}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+<img src="/ASSETS/IMAGES/LOGO.jpeg">
+<div class="header-title">StorySphere</div>
+</div>
+
+<div class="page">
+
+<div class="back-btn" onclick="goBack()">← Back</div>
+
+<div class="story-layout">
+
+<img id="coverImg" src="/ASSETS/IMAGES/placeholder.png">
+
+<div class="story-info">
+
+<h1 id="title">Loading...</h1>
+<div class="meta" id="meta"></div>
+<div class="description" id="description"></div>
+
+<div class="button-group">
+<button class="start-btn" id="startBtn">Start Reading</button>
+<button class="library-btn" id="libraryBtn">Add to Library</button>
+</div>
+
+<div class="author-card">
+
+<img id="authorPic" src="/ASSETS/IMAGES/profile.png">
+
+<div>
+<div class="author-name" id="authorName">Author</div>
+<div class="author-bio" id="authorBio">Author bio</div>
+</div>
+
+<button id="followBtn" class="follow-btn">Follow</button>
+
+</div>
+
+</div>
+</div>
+
+<div class="chapter-section">
+<h3>Chapters</h3>
+<div id="chapterList">Loading...</div>
+</div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+    console.log("🔥 FINAL FIX RUNNING");
+
+const story_id = localStorage.getItem("current_story_id");
+
+let firstChapterId = null;
+let writerId = null;
+
+/* AUTH */
+async function checkAuth(){
+    try{
+        const res = await fetch("/api/me",{credentials:"include"});
+        if(res.status === 401) location.href="/login";
+    }catch{
+        location.href="/login";
+    }
+}
+
+/* LOAD STORY */
+async function loadStory(){
+
+    if(!story_id){
+        alert("Invalid story");
+        location.href="/reader-dashboard";
+        return;
+    }
+
+    try{
+        const res = await fetch(`/api/stories/single/${story_id}`,{
+            credentials:"include"
+        });
+
+        const data = await res.json();
+
+        title.textContent = data.title || "";
+        description.textContent = data.description || "";
+
+        if(data.cover_image){
+            coverImg.src = `/uploads/covers/${data.cover_image}`;
+        }
+
+        if(data.author){
+            writerId = data.author.user_id;
+
+            authorName.textContent = data.author.name || "";
+            authorBio.textContent = data.author.bio || "";
+
+            /* ===== FIXED AVATAR LOGIC ===== */
+            const initials = (data.author.name || "Author")
+                .split(" ")
+                .map(w => w[0])
+                .join("")
+                .toUpperCase();
+
+            if(data.author.profile_pic){
+                authorPic.src = `/uploads/profile_pics/${data.author.profile_pic}`;
+            }else{
+                authorPic.src = `https://ui-avatars.com/api/?name=${initials}&background=7A3EB1&color=fff`;
+            }
+
+            /* fallback if image fails */
+            authorPic.onerror = function(){
+                this.src = `https://ui-avatars.com/api/?name=${initials}&background=7A3EB1&color=fff`;
+            };
+        }
+
+    }catch{
+        alert("Failed to load story");
+    }
+}
+
+/* LOAD CHAPTERS */
+async function loadChapters(){
+
+    try{
+        const res = await fetch(`/api/reader/story/${story_id}/chapters`,{
+            credentials:"include"
+        });
+
+        const list = await res.json();
+
+        chapterList.innerHTML="";
+
+        list.forEach((ch,index)=>{
+
+            if(!firstChapterId) firstChapterId = ch.id;
+
+            const div = document.createElement("div");
+            div.className = "chapter-item";
+            div.innerHTML = (index+1)+". "+ch.title;
+
+            div.onclick = ()=>{
+                localStorage.setItem("current_story_id", story_id);
+                localStorage.setItem("last_chapter_id", ch.id);
+                location.href="/reader-reading";
+            };
+
+            chapterList.appendChild(div);
+        });
+
+    }catch{
+        alert("Failed to load chapters");
+    }
+}
+
+/* START */
+startBtn.onclick = ()=>{
+    if(!firstChapterId){
+        alert("No chapters available");
+        return;
+    }
+    localStorage.setItem("current_story_id", story_id);
+    localStorage.setItem("last_chapter_id", firstChapterId);
+    location.href="/reader-reading";
+};
+
+/* LIBRARY */
+libraryBtn.onclick = async ()=>{
+
+    try{
+        const res = await fetch(`/api/library`, {
+            method:"POST",
+            credentials:"include",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({ story_id })
+        });
+
+        if(!res.ok){
+            alert("Failed to add");
+            return;
+        }
+
+        showToast("Added to Library");
+
+    }catch{
+        alert("Error");
+    }
+};
+
+/* FOLLOW */
+followBtn.onclick = async ()=>{
+
+    if(!writerId){
+        alert("Writer not found");
+        return;
+    }
+
+    try{
+        const res = await fetch(`/api/follow`, {
+            method:"POST",
+            credentials:"include",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({ writer_id: writerId })
+        });
+
+        const data = await res.json();
+
+        followBtn.innerText = data.followed ? "Followed" : "Follow";
+
+    }catch{
+        alert("Follow failed");
+    }
+};
+
+/* TOAST */
+function showToast(msg){
+    toast.innerText = msg;
+    toast.classList.add("show");
+    setTimeout(()=>toast.classList.remove("show"),1500);
+}
+
+/* BACK */
+function goBack(){
+    location.href="/reader-dashboard";
+}
+
+/* INIT */
+(async()=>{
+    await checkAuth();
+    await loadStory();
+    await loadChapters();
+})();
+</script>
+
+</body>
+</html>

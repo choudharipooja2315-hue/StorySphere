@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Add Chapter</title>
+
+<style>
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+font-family:Arial;
+margin:0;
+}
+
+.page{padding:20px;}
+
+input{
+width:100%;
+font-size:24px;
+border:none;
+border-bottom:1px solid #ccc;
+padding:10px;
+}
+
+.editor{
+border:1px solid #ccc;
+min-height:300px;
+margin-top:10px;
+padding:10px;
+background:white;
+}
+
+button{
+margin-top:10px;
+padding:10px 20px;
+background:#7A3EB1;
+color:white;
+border:none;
+border-radius:20px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="page">
+
+<input id="title" placeholder="Chapter title">
+<div id="editor" class="editor" contenteditable="true"></div>
+
+<button onclick="save()">Save Draft</button>
+<button onclick="publish()">Publish</button>
+
+</div>
+
+<script>
+
+const API = "";
+
+// ✅ IMPORTANT FIX
+const storyId = localStorage.getItem("current_story_id");
+const chapterId = localStorage.getItem("current_chapter_id");
+
+if(!storyId){
+alert("Story not selected");
+location.href="/writer-dashboard";
+}
+
+const title = document.getElementById("title");
+const editor = document.getElementById("editor");
+
+/* LOAD */
+if(chapterId){
+fetch(`/api/chapter/${chapterId}`,{credentials:"include"})
+.then(res=>{
+if(res.status===401){
+location.href="/login";
+return;
+}
+return res.json();
+})
+.then(data=>{
+if(!data) return;
+title.value=data.title;
+editor.innerHTML=data.content;
+});
+}
+
+/* SAVE */
+async function save(){
+
+const t = title.value.trim();
+const c = editor.innerHTML.trim();
+
+if(!t){
+alert("Title required");
+return;
+}
+
+let url, method;
+
+if(chapterId){
+url = `/api/writer/chapter/${chapterId}`;
+method = "PUT";
+}else{
+url = `/api/writer/story/${storyId}/chapter`;
+method = "POST";
+}
+
+await fetch(url,{
+method,
+headers:{"Content-Type":"application/json"},
+credentials:"include",
+body:JSON.stringify({title:t,content:c})
+});
+
+// ✅ FIXED
+location.href="/story-details-writer";
+}
+
+/* PUBLISH */
+async function publish(){
+
+const t = title.value.trim();
+const c = editor.innerHTML.trim();
+
+if(!t || !c){
+alert("Fill all fields");
+return;
+}
+
+let id = chapterId;
+
+if(!chapterId){
+const res = await fetch(`/api/writer/story/${storyId}/chapter`,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+credentials:"include",
+body:JSON.stringify({title:t,content:c})
+});
+
+if(res.status===401){
+location.href="/login";
+return;
+}
+
+const data = await res.json();
+id = data.chapter_id;
+
+}else{
+await fetch(`/api/writer/chapter/${chapterId}`,{
+method:"PUT",
+headers:{"Content-Type":"application/json"},
+credentials:"include",
+body:JSON.stringify({title:t,content:c})
+});
+}
+
+await fetch(`/api/writer/chapter/${id}/publish`,{
+method:"PUT",
+credentials:"include"
+});
+
+
+location.href="/story-details-writer";
+}
+
+</script>
+
+</body>
+</html>

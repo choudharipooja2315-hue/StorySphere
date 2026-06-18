@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Create New Story – StorySpere</title>
+
+<style>
+
+/* Base layout */
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial,sans-serif;
+}
+
+:root{
+--indigo:#4B1B6D;
+--violet:#7A3EB1;
+--border:#dcdcdc;
+}
+
+/* Light mode background */
+
+body{
+min-height:100vh;
+background-image:url("ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+/* Dark mode */
+
+body.dark{
+background:#121212;
+color:#eee;
+}
+
+/* Page wrapper */
+
+.page-wrapper{
+width:100%;
+display:flex;
+justify-content:center;
+}
+
+/* Card */
+
+.create-card{
+width:540px;
+background:white;
+padding:30px;
+border-radius:14px;
+box-shadow:0 10px 30px rgba(0,0,0,0.15);
+}
+
+body.dark .create-card{
+background:#1e1e1e;
+color:white;
+}
+
+/* Title */
+
+.create-card h2{
+text-align:center;
+color:var(--indigo);
+margin-bottom:20px;
+}
+
+/* Cover upload */
+
+.cover-upload{
+width:130px;
+height:170px;
+margin:0 auto 20px;
+border:2px dashed var(--violet);
+border-radius:10px;
+cursor:pointer;
+position:relative;
+
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+
+color:var(--violet);
+font-size:12px;
+}
+
+.cover-plus{
+font-size:30px;
+font-weight:bold;
+}
+
+.cover-upload img{
+width:100%;
+height:100%;
+object-fit:cover;
+position:absolute;
+top:0;
+left:0;
+border-radius:10px;
+}
+
+/* Form */
+
+form{
+display:flex;
+flex-direction:column;
+gap:12px;
+}
+
+input,textarea,select{
+padding:10px;
+border-radius:6px;
+border:1px solid var(--border);
+font-size:14px;
+width:100%;
+}
+
+textarea{
+height:90px;
+resize:none;
+}
+
+.label{
+font-size:13px;
+color:#444;
+}
+
+/* Category tags */
+
+.selected-categories{
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+}
+
+.category-tag{
+background:var(--violet);
+color:white;
+padding:4px 10px;
+border-radius:14px;
+font-size:12px;
+display:flex;
+align-items:center;
+gap:6px;
+}
+
+.category-tag span{
+cursor:pointer;
+font-weight:bold;
+}
+
+/* Checkbox */
+
+.checkbox-group{
+display:flex;
+gap:8px;
+font-size:13px;
+align-items:flex-start;
+}
+
+/* Button */
+
+.create-btn{
+margin-top:12px;
+padding:12px;
+background:var(--violet);
+color:white;
+border:none;
+border-radius:22px;
+font-size:15px;
+cursor:pointer;
+}
+
+.create-btn:hover{
+background:var(--indigo);
+}
+
+/* Message */
+
+.form-message{
+text-align:center;
+margin-top:10px;
+font-size:14px;
+color:green;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="page-wrapper">
+
+<div class="create-card">
+
+<h2>Create New Story</h2>
+
+<form id="createStoryForm">
+
+<div class="cover-upload" onclick="openCoverPicker()">
+<span class="cover-text">Add Story Cover</span>
+<span class="cover-plus">+</span>
+<img id="coverPreview" hidden>
+</div>
+
+<input type="file" id="coverInput" accept="image/*" required hidden>
+
+<input type="text" id="titleInput" placeholder="Story Title" required>
+
+<textarea id="descInput"
+placeholder="Story Description / Summary"
+required></textarea>
+
+<input type="text"
+id="tropeInput"
+placeholder="Story Tropes (e.g. Enemies to Lovers, Slow Burn)"
+required>
+
+<label class="label">Select Categories</label>
+
+<select id="categorySelect">
+<option disabled selected>Select category</option>
+<option>Romance</option>
+<option>Thriller</option>
+<option>Horror</option>
+<option>Fantasy</option>
+<option>Mafia</option>
+<option>Werewolf</option>
+<option>Forced Marriage</option>
+<option>Mystery</option>
+<option>Drama</option>
+</select>
+
+<div id="selectedCategories" class="selected-categories"></div>
+
+<select id="languageSelect" required>
+<option disabled selected>Story Language</option>
+<option>English</option>
+<option>Hindi</option>
+<option>Marathi</option>
+<option>Other</option>
+</select>
+
+<input type="text"
+id="otherLanguage"
+placeholder="Specify language"
+hidden>
+
+<select id="audienceSelect" required>
+<option disabled selected>Target Audience</option>
+<option>Teen</option>
+<option>Young Adult</option>
+<option>Adult</option>
+</select>
+
+<div class="checkbox-group">
+<input type="checkbox" id="copyrightCheck" required>
+<label>I confirm that this story is original and owned by me</label>
+</div>
+
+<button type="button" id="createBtn" class="create-btn">
+Create Story
+</button>
+
+<p id="formMessage" class="form-message"></p>
+
+</form>
+
+</div>
+</div>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", async ()=>{
+
+/* Apply theme */
+
+const savedTheme = localStorage.getItem("theme");
+if(savedTheme === "dark"){
+document.body.classList.add("dark");
+}
+
+/* SESSION VALIDATION (FIXED) */
+
+try{
+
+const res = await fetch("http://127.0.0.1:5000/api/me",{
+credentials:"include"
+});
+
+if(res.status === 401){
+window.location.href="/LOGIN.html";
+return;
+}
+
+}catch{
+
+window.location.href="/LOGIN.html";
+return;
+
+}
+
+/* Prevent form submit */
+
+const form=document.getElementById("createStoryForm");
+form.addEventListener("submit",e=>e.preventDefault());
+
+/* Cover */
+
+const coverInput=document.getElementById("coverInput");
+const coverPreview=document.getElementById("coverPreview");
+
+window.openCoverPicker=()=>coverInput.click();
+
+coverInput.addEventListener("change",()=>{
+const file=coverInput.files[0];
+if(!file)return;
+
+coverPreview.src=URL.createObjectURL(file);
+coverPreview.hidden=false;
+
+document.querySelector(".cover-text")?.remove();
+document.querySelector(".cover-plus")?.remove();
+});
+
+/* Categories */
+
+const categorySelect=document.getElementById("categorySelect");
+const selectedCategoriesDiv=document.getElementById("selectedCategories");
+
+let selectedCategories=[];
+
+categorySelect.addEventListener("change",function(){
+
+if(!selectedCategories.includes(this.value)){
+selectedCategories.push(this.value);
+renderCategories();
+}
+
+this.selectedIndex=0;
+});
+
+function renderCategories(){
+selectedCategoriesDiv.innerHTML="";
+selectedCategories.forEach((cat,index)=>{
+const tag=document.createElement("div");
+tag.className="category-tag";
+tag.innerHTML=`${cat} <span onclick="removeCategory(${index})">×</span>`;
+selectedCategoriesDiv.appendChild(tag);
+});
+}
+
+window.removeCategory=index=>{
+selectedCategories.splice(index,1);
+renderCategories();
+};
+
+/* Language */
+
+const languageSelect=document.getElementById("languageSelect");
+const otherLanguage=document.getElementById("otherLanguage");
+
+languageSelect.addEventListener("change",function(){
+if(this.value==="Other"){
+otherLanguage.hidden=false;
+}else{
+otherLanguage.hidden=true;
+otherLanguage.value="";
+}
+});
+
+/* Create story */
+
+const createBtn=document.getElementById("createBtn");
+
+createBtn.addEventListener("click",()=>{
+
+const title=titleInput.value.trim();
+const description=descInput.value.trim();
+const tropes=tropeInput.value.trim();
+const audience=audienceSelect.value;
+
+const language=
+languageSelect.value==="Other"
+? otherLanguage.value.trim()
+: languageSelect.value;
+
+const coverFile=coverInput.files[0];
+
+if(!title||!description||!tropes||!language||!audience||!coverFile){
+alert("Please fill all fields and upload cover image");
+return;
+}
+
+const formData=new FormData();
+
+formData.append("title",title);
+formData.append("description",description);
+formData.append("tropes",tropes);
+formData.append("categories",selectedCategories.join(","));
+formData.append("language",language);
+formData.append("audience",audience);
+formData.append("cover_image",coverFile);
+
+fetch("http://127.0.0.1:5000/api/writer/stories",{
+
+method:"POST",
+body:formData,
+credentials:"include"
+
+})
+.then(async res=>{
+
+const data=await res.json();
+
+if(res.ok){
+window.location.href="WRITER_DASHBOARD.html";
+}else{
+alert(data.error||"Story creation failed");
+}
+
+})
+.catch(()=>{
+alert("Server error");
+});
+
+});
+
+});
+
+</script>
+
+</body>
+</html>

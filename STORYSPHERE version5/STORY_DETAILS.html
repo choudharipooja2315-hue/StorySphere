@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Story Details</title>
+
+<style>
+body{
+font-family:Arial;
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+margin:0;
+}
+body.dark{background:#121212;color:#eee;}
+
+header{
+padding:15px;
+background:#4B1B6D;
+}
+header button{
+background:none;
+border:none;
+color:white;
+font-size:16px;
+cursor:pointer;
+}
+
+main{padding:30px;}
+
+.story-box{
+display:flex;
+gap:20px;
+margin-bottom:20px;
+}
+
+.story-box img{
+width:160px;
+height:220px;
+object-fit:cover;
+border-radius:10px;
+}
+
+.chapter-row{
+display:flex;
+justify-content:space-between;
+padding:10px 0;
+border-bottom:1px solid #ddd;
+cursor:pointer;
+}
+
+.chapter-row:hover{
+color:#7A3EB1;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<button onclick="location.href='/writer-dashboard'">← Back</button>
+</header>
+
+<main>
+
+<div class="story-box">
+<img id="coverImg">
+<div>
+<h2 id="title"></h2>
+<p id="description"></p>
+</div>
+</div>
+
+<h3>Chapters</h3>
+<div id="chapterList"></div>
+
+<br>
+<button id="addChapterBtn">➕ New Part</button>
+<button id="publishStoryBtn">📢 Publish Story</button>
+
+</main>
+
+<script>
+
+// ✅ No hardcoded API (avoids CORS/session issues)
+const API = "";
+
+document.addEventListener("DOMContentLoaded", async ()=>{
+
+const storyId = localStorage.getItem("current_story_id");
+
+if(!storyId){
+location.href="/writer-dashboard";
+return;
+}
+
+const titleEl = document.getElementById("title");
+const descEl = document.getElementById("description");
+const coverImg = document.getElementById("coverImg");
+const chapterList = document.getElementById("chapterList");
+
+// ================= LOAD STORY =================
+try{
+const res = await fetch(`${API}/api/stories/single/${storyId}`, {
+credentials:"include"
+});
+
+if(res.status === 401){
+location.href="/login";
+return;
+}
+
+if(!res.ok){
+throw new Error("Failed");
+}
+
+const data = await res.json();
+
+titleEl.innerText = data.title || "Untitled";
+descEl.innerText = data.description || "";
+
+coverImg.src = data.cover_image
+? `/uploads/covers/${data.cover_image}`
+: "/ASSETS/IMAGES/placeholder.png";
+
+}catch(e){
+console.error("Story load error:", e);
+alert("Failed to load story");
+location.href="/writer-dashboard";
+return;
+}
+
+
+// ================= LOAD CHAPTERS =================
+try{
+const chRes = await fetch(`${API}/api/writer/story/${storyId}/chapters`, {
+credentials:"include"
+});
+
+if(chRes.status === 401){
+location.href="/login";
+return;
+}
+
+if(chRes.status === 403){
+alert("Not authorized");
+location.href="/writer-dashboard";
+return;
+}
+
+if(!chRes.ok){
+throw new Error("Failed");
+}
+
+const chapters = await chRes.json();
+
+chapterList.innerHTML = "";
+
+if(!Array.isArray(chapters) || chapters.length === 0){
+chapterList.innerHTML = "<p>No chapters yet</p>";
+return;
+}
+
+chapters.forEach((ch, index)=>{
+
+const row = document.createElement("div");
+row.className = "chapter-row";
+
+row.innerHTML = `
+<span>
+${index+1}. ${ch.title} (${ch.status})
+❤️ ${ch.likes ?? 0}  💬 ${ch.comments ?? 0}
+</span>
+`;
+
+row.onclick = ()=>{
+localStorage.setItem("current_story_id", storyId);
+localStorage.setItem("current_chapter_id", ch.id);
+location.href="/add-chapter";
+};
+
+chapterList.appendChild(row);
+
+});
+
+}catch(e){
+console.error("Chapter load error:", e);
+chapterList.innerHTML = "<p>Failed to load chapters</p>";
+}
+
+
+// ================= ADD CHAPTER =================
+document.getElementById("addChapterBtn").onclick = ()=>{
+localStorage.removeItem("current_chapter_id");
+location.href="/add-chapter";
+};
+
+
+// ================= PUBLISH =================
+document.getElementById("publishStoryBtn").onclick = async ()=>{
+
+try{
+const res = await fetch(`${API}/api/stories/publish/${storyId}`, {
+method:"PUT",
+credentials:"include"
+});
+
+if(res.status === 401){
+location.href="/login";
+return;
+}
+
+if(!res.ok){
+alert("Failed to publish");
+return;
+}
+
+alert("Story Published!");
+location.href="/writer-dashboard";
+
+}catch(e){
+console.error("Publish error:", e);
+alert("Error publishing story");
+}
+
+};
+
+});
+</script>
+
+</body>
+</html>

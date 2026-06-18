@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Author Registration – StorySpere</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Segoe UI",Arial,sans-serif;
+}
+
+body{
+    min-height:100vh;
+    background-image:url("ASSETS/IMAGES/light-bg.jpeg");
+    background-size:cover;
+    background-position:center;
+    background-attachment:fixed;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.register-page{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+}
+
+.register-logo{
+    width:120px;
+    height:auto;
+}
+
+.register-card{
+    width:500px;
+    background:white;
+    padding:28px;
+    border-radius:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.15);
+}
+
+.register-card h2{
+    text-align:center;
+    color:#600E6B;
+    margin-bottom:16px;
+}
+
+form{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+input, textarea, select{
+    padding:10px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    font-size:14px;
+}
+
+textarea{
+    resize:none;
+    height:90px;
+}
+
+.checkbox-group{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:13px;
+}
+
+.register-btn{
+    margin-top:10px;
+    padding:10px;
+    background:#600E6B;
+    color:white;
+    border:none;
+    border-radius:20px;
+    font-size:15px;
+    cursor:pointer;
+}
+
+.login-link{
+    text-align:center;
+    font-size:14px;
+    margin-top:10px;
+}
+
+.login-link a{
+    color:#600E6B;
+    font-weight:600;
+    text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="register-page">
+
+<img src="ASSETS/IMAGES/LOGO.jpeg" class="register-logo">
+
+<div class="register-card">
+
+<h2>Author Registration</h2>
+
+<form id="registerForm">
+
+<input id="penName" placeholder="Pen Name (Displayed to Readers)" required>
+
+<textarea id="bio" placeholder="Author Bio" required></textarea>
+
+<select id="language" required>
+<option selected disabled>Preferred Writing Language</option>
+<option>English</option>
+<option>Hindi</option>
+<option>Marathi</option>
+<option>Other</option>
+</select>
+
+<label class="checkbox-group">
+<input type="checkbox" id="copyright" required>
+<span>I confirm that all stories published by me are original and owned by me</span>
+</label>
+
+<button type="submit" class="register-btn">
+Register as Author
+</button>
+
+<p class="login-link">
+Already registered?
+<a href="LOGIN.html">Login</a>
+</p>
+
+</form>
+
+</div>
+</div>
+
+<script>
+
+const API = "http://127.0.0.1:5000";
+
+/* ===== CHECK SESSION ===== */
+
+fetch(API + "/api/me", { credentials:"include" })
+.then(res => {
+    if(!res.ok){
+        window.location.href = "LOGIN.html";
+    }
+});
+
+/* ===== SUBMIT ===== */
+
+document.getElementById("registerForm").addEventListener("submit", async function(e){
+
+    e.preventDefault();
+
+    try{
+
+        const res = await fetch(API + "/api/become-writer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+                pen_name: document.getElementById("penName").value.trim(),
+                bio: document.getElementById("bio").value.trim()
+            })
+        });
+
+        const data = await res.json();
+
+        if(!res.ok){
+            alert(data.error || "Registration failed");
+            return;
+        }
+
+        localStorage.setItem("last_mode","writer");
+        window.location.href = "WRITER_DASHBOARD.html";
+
+    }catch{
+        alert("Server error");
+    }
+
+});
+</script>
+
+</body>
+</html>

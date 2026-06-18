@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Writer Dashboard</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial;}
+
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-position:center;
+background-attachment:fixed;
+color:#111;
+}
+
+body.dark{background:#121212;color:#eee;}
+
+.dashboard-header{
+height:60px;background:#4B1B6D;color:white;
+display:flex;justify-content:space-between;
+align-items:center;padding:0 20px;
+}
+
+.header-left{display:flex;align-items:center;gap:15px;}
+
+.browse-btn{font-size:13px;cursor:pointer;opacity:.9;}
+.browse-btn:hover{text-decoration:underline;}
+
+.profile-area{position:relative;display:flex;align-items:center;gap:15px;}
+
+.profile-area img{
+width:36px;height:36px;border-radius:50%;
+cursor:pointer;object-fit:cover;
+}
+
+.dropdown{
+position:absolute;right:0;top:50px;background:white;
+color:black;width:200px;padding:15px;border-radius:10px;
+box-shadow:0 5px 20px rgba(0,0,0,.3);display:none;
+}
+
+body.dark .dropdown{background:#1e1e1e;color:white;}
+
+.dropdown-item{padding:8px;cursor:pointer;}
+
+.switch{position:relative;display:inline-block;width:40px;height:20px;margin-left:10px;}
+.switch input{display:none;}
+
+.slider{
+position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;
+background:#ccc;transition:.3s;border-radius:20px;
+}
+
+.slider:before{
+position:absolute;content:"";height:16px;width:16px;
+left:2px;bottom:2px;background:white;transition:.3s;border-radius:50%;
+}
+
+input:checked + .slider{background:#7A3EB1;}
+input:checked + .slider:before{transform:translateX(20px);}
+
+main{padding:25px;}
+
+#createStoryBtn{
+padding:10px 20px;border:none;background:#7A3EB1;
+color:white;border-radius:20px;cursor:pointer;
+}
+
+.tabs{margin-top:20px;}
+
+.tabs button{
+padding:8px 18px;border:none;border-radius:20px;
+background:#ddd;cursor:pointer;
+}
+
+.tabs .active{background:#7A3EB1;color:white;}
+
+.story-grid{
+margin-top:20px;
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+gap:20px;
+transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.story-grid.fade-out{
+opacity:0;
+transform:translateY(8px);
+}
+
+.story-grid.fade-in{
+opacity:1;
+transform:translateY(0);
+}
+
+.story-card{
+background:white;padding:10px;border-radius:10px;
+text-align:center;cursor:pointer;
+}
+
+body.dark .story-card{background:#1e1e1e;color:white;}
+
+.story-card img{
+width:100%;height:200px;object-fit:cover;border-radius:8px;
+}
+</style>
+</head>
+
+<body>
+
+<header class="dashboard-header">
+
+<div class="header-left">
+<h2>Writer Dashboard</h2>
+<span class="browse-btn" id="browseBtn">Browse</span>
+</div>
+
+<div class="profile-area">
+<img id="writerAvatar" src="/ASSETS/IMAGES/profile.png">
+
+<div class="dropdown" id="dropdown">
+
+<div class="dropdown-item" onclick="goProfile()">My Profile</div>
+
+<div class="dropdown-item">
+Dark Mode
+<label class="switch">
+<input type="checkbox" id="darkSwitch">
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="dropdown-item" onclick="logout()">Logout</div>
+
+</div>
+</div>
+
+</header>
+
+<main>
+
+<button id="createStoryBtn">+ Create New Story</button>
+
+<div class="tabs">
+<button id="publishedTab">Published</button>
+<button id="allTab" class="active">All Stories</button>
+</div>
+
+<div id="storiesContainer" class="story-grid"></div>
+
+</main>
+
+<script>
+
+// ===== GLOBAL STORE =====
+let allStories = [];
+
+// ===== SESSION CHECK =====
+async function checkSession(){
+try{
+const res=await fetch("/api/me",{credentials:"include"});
+
+if(res.status===401){
+window.location.href="/login";
+return;
+}
+
+const user=await res.json();
+
+if(!user.is_writer){
+window.location.href="/reader-dashboard";
+return;
+}
+
+loadStories();
+loadAvatar();
+
+}catch{
+window.location.href="/login";
+}
+}
+
+checkSession();
+
+// ===== LOAD STORIES =====
+async function loadStories(){
+try{
+const res = await fetch("/api/writer/stories",{credentials:"include"});
+
+if(res.status===401){
+window.location.href="/login";
+return;
+}
+
+if(res.status===403){
+document.getElementById("storiesContainer").innerHTML="<p>Not a writer</p>";
+return;
+}
+
+const data = await res.json();
+
+if(!Array.isArray(data)){
+document.getElementById("storiesContainer").innerHTML="<p>No stories yet</p>";
+return;
+}
+
+allStories = data;
+renderStories(allStories);
+
+}catch{
+document.getElementById("storiesContainer").innerHTML="<p>Failed to load stories</p>";
+}
+}
+
+// ===== RENDER =====
+function renderStories(stories){
+const container=document.getElementById("storiesContainer");
+container.innerHTML="";
+
+if(stories.length === 0){
+container.innerHTML="<p>No stories found</p>";
+return;
+}
+
+stories.forEach(story=>{
+
+const card=document.createElement("div");
+card.className="story-card";
+
+const img=story.cover_image
+? "/uploads/covers/"+story.cover_image
+: "/ASSETS/IMAGES/placeholder.png";
+
+card.innerHTML=`
+<img src="${img}">
+<h4>${story.title||"Untitled"}</h4>
+<small>${story.visibility||"draft"} • ${story.progress||"ongoing"}</small>
+`;
+
+card.onclick=function(){
+localStorage.setItem("current_story_id",story.id);
+window.location.href="/story-details-writer";
+};
+
+container.appendChild(card);
+
+});
+}
+
+// ===== ANIMATION SWITCH =====
+function animateSwitch(stories){
+const container = document.getElementById("storiesContainer");
+
+container.classList.add("fade-out");
+
+setTimeout(()=>{
+renderStories(stories);
+
+container.classList.remove("fade-out");
+container.classList.add("fade-in");
+
+setTimeout(()=>{
+container.classList.remove("fade-in");
+},250);
+
+},150);
+}
+
+// ===== TAB LOGIC =====
+const publishedTab = document.getElementById("publishedTab");
+const allTab = document.getElementById("allTab");
+
+publishedTab.onclick = function(){
+publishedTab.classList.add("active");
+allTab.classList.remove("active");
+
+const filtered = allStories.filter(s => s.visibility === "published");
+animateSwitch(filtered);
+};
+
+allTab.onclick = function(){
+allTab.classList.add("active");
+publishedTab.classList.remove("active");
+
+animateSwitch(allStories);
+};
+
+// ===== LOAD AVATAR =====
+async function loadAvatar(){
+try{
+const res=await fetch("/api/profile",{credentials:"include"});
+if(!res.ok) return;
+
+const user=await res.json();
+const avatar=document.getElementById("writerAvatar");
+
+if(user.profile_pic){
+avatar.src="/uploads/profile_pics/"+user.profile_pic;
+}else{
+const letter=user.username.charAt(0).toUpperCase();
+avatar.src="https://ui-avatars.com/api/?name="+letter+"&background=7A3EB1&color=fff";
+}
+
+}catch{}
+}
+
+// ===== DROPDOWN =====
+const avatar=document.getElementById("writerAvatar");
+const dropdown=document.getElementById("dropdown");
+
+avatar.onclick=()=>dropdown.style.display =
+dropdown.style.display==="block" ? "none" : "block";
+
+document.addEventListener("click",function(e){
+if(!document.querySelector(".profile-area").contains(e.target)){
+dropdown.style.display="none";
+}
+});
+
+// ===== DARK MODE =====
+const darkSwitch=document.getElementById("darkSwitch");
+
+if(localStorage.getItem("theme")==="dark"){
+document.body.classList.add("dark");
+darkSwitch.checked=true;
+}
+
+darkSwitch.onchange=function(){
+document.body.classList.toggle("dark",this.checked);
+localStorage.setItem("theme",this.checked?"dark":"light");
+};
+
+// ===== NAVIGATION =====
+function goProfile(){
+window.location.href="/writer-profile";
+}
+
+function logout(){
+fetch("/api/logout",{method:"POST",credentials:"include"})
+.then(()=>window.location.href="/login");
+}
+
+document.getElementById("browseBtn").onclick=function(){
+window.location.href="/reader-dashboard";
+};
+
+document.getElementById("createStoryBtn").onclick=function(){
+window.location.href="/create-story";
+};
+
+</script>
+
+</body>
+</html>

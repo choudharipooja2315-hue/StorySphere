@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Reading – StorySphere</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",Arial;}
+
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-attachment:fixed;
+color:#111;
+overflow:hidden;
+}
+
+.header{
+height:60px;
+background:#4B1B6D;
+color:white;
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:0 20px;
+position:fixed;
+top:0;
+width:100%;
+}
+
+.logo{display:flex;align-items:center;gap:10px;cursor:pointer;}
+.logo img{width:32px;}
+
+.container{display:flex;height:100vh;padding-top:60px;}
+
+.left-panel{width:160px;padding:20px 10px;display:flex;flex-direction:column;gap:12px;}
+
+.btn{
+background:white;
+padding:12px;
+border-radius:10px;
+cursor:pointer;
+}
+
+.btn.active{color:red;font-weight:bold;}
+
+.center{flex:1;display:flex;justify-content:center;}
+
+.reader{
+width:900px;
+height:100%;
+overflow-y:auto;
+padding:40px;
+line-height:1.9;
+font-size:18px;
+scrollbar-width:none;
+}
+.reader::-webkit-scrollbar{display:none;}
+
+.right-panel{width:200px;padding:20px;position:relative;}
+
+.chapter-btn{background:white;padding:12px;border-radius:10px;cursor:pointer;}
+
+.chapter-panel{
+position:absolute;
+top:60px;
+background:white;
+width:240px;
+border-radius:10px;
+display:none;
+max-height:400px;
+overflow:auto;
+z-index:10;
+}
+
+.chapter-item{padding:12px;cursor:pointer;}
+.chapter-item:hover{background:#eee;}
+
+.comment-panel{
+position:fixed;
+right:0;
+top:60px;
+width:320px;
+height:calc(100% - 60px);
+background:white;
+display:none;
+padding:15px;
+z-index:20;
+}
+
+.customize-panel{
+position:fixed;
+top:140px;
+left:170px;
+width:260px;
+background:white;
+padding:15px;
+border-radius:10px;
+box-shadow:0 5px 20px rgba(0,0,0,0.2);
+display:none;
+z-index:50;
+}
+
+.nav-buttons{text-align:center;margin-top:30px;}
+
+.nav-buttons button{
+padding:10px 20px;
+margin:10px;
+border:none;
+border-radius:20px;
+background:#7A3EB1;
+color:white;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+<div class="logo" onclick="location.href='/reader-dashboard'">
+<img src="/ASSETS/IMAGES/LOGO.jpeg">
+<span>StorySphere</span>
+</div>
+<div id="chapterLabel">Loading...</div>
+</div>
+
+<div class="container">
+
+<div class="left-panel">
+<button class="btn" id="likeBtn">❤️ Like</button>
+<button class="btn" id="commentBtn">💬 Comments</button>
+<button class="btn" id="customizeBtn">⚙ Customize</button>
+</div>
+
+<div class="center">
+<div class="reader">
+<h1 id="chapterTitle"></h1>
+<div id="chapterContent"></div>
+
+<div class="nav-buttons">
+<button id="prevBtn">⬅</button>
+<button id="nextBtn">➡</button>
+</div>
+</div>
+</div>
+
+<div class="right-panel">
+<div class="chapter-btn" id="chapterBtn">Chapters ▼</div>
+<div class="chapter-panel" id="chapterPanel"></div>
+</div>
+
+</div>
+
+<div class="comment-panel" id="commentPanel">
+<h3>Comments</h3>
+<div id="commentList"></div>
+<textarea id="commentInput"></textarea>
+<button id="postBtn">Post</button>
+<div id="commentMsg"></div>
+</div>
+
+<div class="customize-panel" id="customizePanel">
+<h3>Customize</h3>
+
+<label>Font Size</label>
+<select id="fontSize">
+<option value="16px">Small</option>
+<option value="18px" selected>Medium</option>
+<option value="22px">Large</option>
+</select>
+
+<label>Line Height</label>
+<select id="lineHeight">
+<option value="1.6">Normal</option>
+<option value="1.9" selected>Comfort</option>
+<option value="2.3">Wide</option>
+</select>
+
+<label>Font</label>
+<select id="fontFamily">
+<option value="Segoe UI">Default</option>
+<option value="Georgia">Serif</option>
+<option value="Courier New">Mono</option>
+</select>
+
+</div>
+
+<script>
+
+const storyId = parseInt(localStorage.getItem("current_story_id"));
+
+let chapters = [];
+let currentIndex = 0;
+
+/* =========================
+   LOAD CHAPTER LIST
+========================= */
+async function loadChapters(){
+    try{
+        const res = await fetch("/api/reader/story/" + storyId + "/chapters", {
+            credentials: "include"
+        });
+
+        if(!res.ok) throw new Error("Failed to load chapters");
+
+        chapters = await res.json();
+
+        renderChapterList();
+        restoreLastPosition();
+
+    }catch(e){
+        console.error("CHAPTER LOAD ERROR:", e);
+    }
+}
+
+/* =========================
+   RESTORE LAST READ
+========================= */
+function restoreLastPosition(){
+
+    let saved = localStorage.getItem("last_chapter_id");
+    let index = 0;
+
+    if(saved){
+        const found = chapters.findIndex(c => c.id == saved);
+        if(found >= 0) index = found;
+    }
+
+    loadChapter(index);
+}
+
+/* =========================
+   LOAD SINGLE CHAPTER
+========================= */
+async function loadChapter(index){
+
+    const ch = chapters[index];
+    if(!ch) return;
+
+    currentIndex = index;
+
+    try{
+        const res = await fetch("/api/chapter/" + ch.id, {
+            credentials: "include"
+        });
+
+        if(!res.ok) throw new Error("Chapter fetch failed");
+
+        const data = await res.json();
+
+        // 🔥 SAFE FALLBACKS (FIX UNDEFINED ISSUE)
+        const title = data.title || "Untitled";
+        const content = data.content || "No content";
+        const likes = data.likes ?? 0;
+        const liked = data.liked ?? false;
+
+        chapterTitle.innerText = (index+1) + ". " + title;
+        chapterContent.innerHTML = content;
+        chapterLabel.innerText = title;
+
+        localStorage.setItem("last_chapter_id", ch.id);
+
+        // 🔥 SYNC STATE
+        ch.likes = likes;
+        ch.liked = liked;
+
+        // 🔥 BUTTON UPDATE
+        if(liked){
+            likeBtn.classList.add("active");
+            likeBtn.innerText = `❤️ Liked (${likes})`;
+        }else{
+            likeBtn.classList.remove("active");
+            likeBtn.innerText = `❤️ Like (${likes})`;
+        }
+
+        saveProgress(ch.id);
+        updateNavButtons();
+
+    }catch(e){
+        console.error("LOAD CHAPTER ERROR:", e);
+        chapterTitle.innerText = "Error loading chapter";
+        chapterContent.innerText = "Try again later";
+    }
+}
+
+/* =========================
+   SAVE PROGRESS
+========================= */
+function saveProgress(chapterId){
+
+    fetch("/api/continue-reading", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            story_id: storyId,
+            chapter_id: chapterId,
+            scroll_position: window.scrollY || 0
+        })
+    }).catch(err=>console.error("Progress save failed", err));
+}
+
+/* =========================
+   AUTO SAVE
+========================= */
+window.addEventListener("scroll", ()=>{
+    const ch = chapters[currentIndex];
+    if(ch) saveProgress(ch.id);
+});
+
+/* =========================
+   NAVIGATION
+========================= */
+function updateNavButtons(){
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === chapters.length - 1;
+}
+
+prevBtn.onclick = ()=>{
+    if(currentIndex > 0) loadChapter(currentIndex - 1);
+};
+
+nextBtn.onclick = ()=>{
+    if(currentIndex < chapters.length - 1) loadChapter(currentIndex + 1);
+};
+
+/* =========================
+   CHAPTER LIST
+========================= */
+function renderChapterList(){
+
+    chapterPanel.innerHTML = "";
+
+    chapters.forEach((ch, i)=>{
+        const div = document.createElement("div");
+        div.className = "chapter-item";
+
+        div.innerText = `${i+1}. ${ch.title || "Untitled"} ❤️ ${ch.likes || 0}`;
+
+        div.onclick = ()=>{
+            loadChapter(i);
+            chapterPanel.style.display = "none";
+        };
+
+        chapterPanel.appendChild(div);
+    });
+}
+
+/* =========================
+   LIKE SYSTEM
+========================= */
+async function toggleLike(){
+
+    const ch = chapters[currentIndex];
+
+    try{
+        const res = await fetch("/api/chapter/" + ch.id + "/like", {
+            method: "POST",
+            credentials: "include"
+        });
+
+        if(!res.ok) throw new Error("Like failed");
+
+        const data = await res.json();
+
+        ch.likes = data.likes_count ?? 0;
+        ch.liked = data.liked ?? false;
+
+        if(ch.liked){
+            likeBtn.classList.add("active");
+            likeBtn.innerText = `❤️ Liked (${ch.likes})`;
+        }else{
+            likeBtn.classList.remove("active");
+            likeBtn.innerText = `❤️ Like (${ch.likes})`;
+        }
+
+        updateChapterListUI();
+
+    }catch(e){
+        console.error("LIKE ERROR:", e);
+        alert("Like failed");
+    }
+}
+
+function updateChapterListUI(){
+    const items = document.querySelectorAll(".chapter-item");
+
+    items.forEach((el, i)=>{
+        const ch = chapters[i];
+        el.innerText = `${i+1}. ${ch.title || "Untitled"} ❤️ ${ch.likes || 0}`;
+    });
+}
+
+likeBtn.onclick = toggleLike;
+
+/* =========================
+   COMMENTS
+========================= */
+async function loadComments(){
+
+    try{
+        const ch = chapters[currentIndex];
+
+        const res = await fetch("/api/chapter/" + ch.id + "/comments", {
+            credentials: "include"
+        });
+
+        if(!res.ok) throw new Error();
+
+        const data = await res.json();
+
+        commentList.innerHTML = "";
+
+        data.forEach(c=>{
+            commentList.innerHTML += `<b>${c.username}</b><br>${c.comment}<hr>`;
+        });
+
+    }catch(e){
+        console.error("COMMENTS ERROR:", e);
+    }
+}
+
+postBtn.onclick = async ()=>{
+
+    const txt = commentInput.value.trim();
+    if(!txt) return;
+
+    const ch = chapters[currentIndex];
+
+    await fetch("/api/chapter/" + ch.id + "/comment", {
+        method: "POST",
+        credentials: "include",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({comment: txt})
+    });
+
+    commentInput.value = "";
+    loadComments();
+};
+
+/* =========================
+   TOGGLES
+========================= */
+chapterBtn.onclick = e=>{
+    e.stopPropagation();
+    chapterPanel.style.display = chapterPanel.style.display==="block"?"none":"block";
+};
+
+commentBtn.onclick = e=>{
+    e.stopPropagation();
+    commentPanel.style.display = commentPanel.style.display==="block"?"none":"block";
+    loadComments();
+};
+
+customizeBtn.onclick = e=>{
+    e.stopPropagation();
+    customizePanel.style.display = customizePanel.style.display==="block"?"none":"block";
+};
+
+document.addEventListener("click",(e)=>{
+    if(!chapterPanel.contains(e.target) && e.target!==chapterBtn){
+        chapterPanel.style.display="none";
+    }
+    if(!commentPanel.contains(e.target) && e.target!==commentBtn){
+        commentPanel.style.display="none";
+    }
+    if(!customizePanel.contains(e.target) && e.target!==customizeBtn){
+        customizePanel.style.display="none";
+    }
+});
+
+/* =========================
+   CUSTOMIZE
+========================= */
+fontSize.onchange = e=>{
+    document.querySelector(".reader").style.fontSize = e.target.value;
+};
+
+lineHeight.onchange = e=>{
+    document.querySelector(".reader").style.lineHeight = e.target.value;
+};
+
+fontFamily.onchange = e=>{
+    document.querySelector(".reader").style.fontFamily = e.target.value;
+};
+
+/* =========================
+   INIT
+========================= */
+loadChapters();
+
+</script>
+
+</body>
+</html>

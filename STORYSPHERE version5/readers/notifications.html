@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Notifications – StorySphere</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial;
+}
+
+body{
+background-image:url("/ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-attachment:fixed;
+padding-bottom:70px;
+}
+
+/* HEADER */
+
+.header{
+background:#5b2a86;
+padding:12px 20px;
+display:flex;
+align-items:center;
+gap:10px;
+color:white;
+}
+
+.back-arrow{
+font-size:22px;
+cursor:pointer;
+margin-right:6px;
+}
+
+.header img{
+width:36px;
+height:36px;
+border-radius:6px;
+}
+
+/* LIST */
+
+.container{
+padding:20px;
+}
+
+.notification{
+background:white;
+padding:15px;
+margin-bottom:10px;
+border-radius:10px;
+box-shadow:0 3px 10px rgba(0,0,0,.15);
+}
+
+.notification small{
+display:block;
+margin-top:6px;
+color:#666;
+font-size:12px;
+}
+
+/* NAV */
+
+.bottom-nav{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+display:flex;
+justify-content:space-around;
+padding:12px 0;
+border-top:1px solid #ddd;
+}
+
+.nav-item{
+font-size:22px;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+
+<span class="back-arrow" onclick="goHome()">←</span>
+
+<img src="/ASSETS/IMAGES/LOGO.jpeg">
+<span>StorySphere</span>
+
+</div>
+
+<div class="container" id="notifications">
+<div class="notification">Loading notifications...</div>
+</div>
+
+<div class="bottom-nav">
+
+<div class="nav-item" onclick="goHome()">🏠</div>
+<div class="nav-item" onclick="goSearch()">🔍</div>
+<div class="nav-item" onclick="goLibrary()">📚</div>
+<div class="nav-item" onclick="goWrite()">✍️</div>
+<div class="nav-item" onclick="goNotifications()">🔔</div>
+
+</div>
+
+<script>
+
+const API="http://127.0.0.1:5000";
+
+/* SESSION CHECK */
+async function checkSession(){
+    try{
+        const res=await fetch(API+"/api/me",{credentials:"include"});
+        if(!res.ok){
+            window.location.assign("/login");
+        }
+    }catch{
+        window.location.assign("/login");
+    }
+}
+checkSession();
+
+/* BACK BUTTON FIX */
+window.onpageshow = function(event) {
+    if (event.persisted) {
+        window.location.reload();
+    }
+};
+
+/* LOAD NOTIFICATIONS */
+async function loadNotifications(){
+
+    const container = document.getElementById("notifications");
+
+    try{
+        const res = await fetch(API+"/api/notifications",{
+            credentials:"include"
+        });
+
+        if(!res.ok){
+            container.innerHTML="<div class='notification'>Failed to load</div>";
+            return;
+        }
+
+        const data = await res.json();
+
+        container.innerHTML="";
+
+        if(!data || data.length===0){
+            container.innerHTML="<div class='notification'>No notifications yet</div>";
+            return;
+        }
+
+        data.forEach(n=>{
+
+            const div = document.createElement("div");
+            div.className="notification";
+
+            div.innerHTML = `
+                <div>${n.message || "New notification"}</div>
+                <small>${n.created_at || ""}</small>
+            `;
+
+            container.appendChild(div);
+        });
+
+    }catch{
+        container.innerHTML="<div class='notification'>Error loading notifications</div>";
+    }
+}
+
+loadNotifications();
+
+/* NAVIGATION */
+
+function goHome(){
+window.location.assign("/reader-dashboard");
+}
+
+function goSearch(){
+window.location.assign("/search");
+}
+
+function goLibrary(){
+window.location.assign("/library");
+}
+
+function goNotifications(){
+window.location.assign("/notifications");
+}
+
+function goWrite(){
+
+fetch(API+"/api/me",{ credentials:"include" })
+.then(res=>res.json())
+.then(data=>{
+if(data.is_writer){
+window.location.assign("/writer-dashboard");
+}else{
+window.location.assign("/register");
+}
+})
+.catch(()=>{
+window.location.assign("/register");
+});
+
+}
+
+</script>
+
+</body>
+</html>

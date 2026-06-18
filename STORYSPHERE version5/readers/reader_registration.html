@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Join StorySphere</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Segoe UI",Arial;
+}
+
+body{
+background-image:url("../ASSETS/IMAGES/light-bg.jpeg");
+background-size:cover;
+background-attachment:fixed;
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+}
+
+body.dark{
+background:#121212;
+color:white;
+}
+
+.container{
+background:white;
+padding:35px;
+width:460px;
+border-radius:14px;
+box-shadow:0 8px 30px rgba(0,0,0,.25);
+}
+
+body.dark .container{
+background:#1e1e1e;
+}
+
+.logo{
+display:flex;
+align-items:center;
+gap:10px;
+margin-bottom:20px;
+}
+
+.logo img{
+width:42px;
+height:42px;
+}
+
+.logo span{
+font-size:22px;
+font-weight:600;
+color:#4B1B6D;
+}
+
+h2{
+margin-bottom:15px;
+}
+
+.section{
+margin-top:18px;
+margin-bottom:8px;
+font-size:14px;
+font-weight:600;
+color:#555;
+}
+
+body.dark .section{
+color:#ccc;
+}
+
+input, select{
+width:100%;
+padding:11px;
+margin-bottom:12px;
+border-radius:8px;
+border:1px solid #ccc;
+font-size:14px;
+}
+
+input:focus, select:focus{
+outline:none;
+border-color:#7A3EB1;
+}
+
+/* AVATAR PREVIEW */
+
+.avatar-preview{
+width:90px;
+height:90px;
+border-radius:50%;
+margin:10px auto;
+display:block;
+object-fit:cover;
+border:3px solid #7A3EB1;
+background:#eee;
+}
+
+/* FILE PICKER */
+
+.file-label{
+display:block;
+padding:10px;
+border:1px dashed #7A3EB1;
+border-radius:8px;
+text-align:center;
+cursor:pointer;
+margin-bottom:12px;
+font-size:14px;
+}
+
+.file-label:hover{
+background:#f6f0fb;
+}
+
+#profile_pic{
+display:none;
+}
+
+/* CATEGORY CHIPS */
+
+.categories{
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+margin-bottom:12px;
+}
+
+.cat{
+padding:7px 12px;
+border-radius:20px;
+border:1px solid #7A3EB1;
+cursor:pointer;
+font-size:13px;
+}
+
+.cat.selected{
+background:#7A3EB1;
+color:white;
+}
+
+/* BUTTON */
+
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:25px;
+background:#7A3EB1;
+color:white;
+font-size:16px;
+cursor:pointer;
+margin-top:10px;
+}
+
+button:hover{
+background:#5f2f8f;
+}
+
+.msg{
+margin-top:10px;
+text-align:center;
+font-size:14px;
+}
+
+.error{color:red;}
+.success{color:green;}
+
+.login-link{
+margin-top:12px;
+text-align:center;
+font-size:14px;
+}
+
+.login-link span{
+color:#7A3EB1;
+cursor:pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="logo">
+<img src="../ASSETS/IMAGES/LOGO.jpeg">
+<span>StorySphere</span>
+</div>
+
+<h2>Create Account</h2>
+
+<div class="section">Identity</div>
+
+<input id="name" placeholder="Full Name">
+<input id="username" placeholder="Username">
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<input id="confirm" type="password" placeholder="Confirm Password">
+
+<!-- Avatar preview -->
+<img id="avatarPreview" class="avatar-preview" src="../ASSETS/IMAGES/profile.png">
+
+<label class="file-label" for="profile_pic">
+Choose a profile picture (optional)
+</label>
+
+<input type="file" id="profile_pic" accept="image/*">
+
+<div class="section">Reading Preferences</div>
+
+<select id="language">
+<option disabled selected>Select Preferred Language</option>
+<option>English</option>
+<option>Hindi</option>
+<option>Marathi</option>
+<option>Other</option>
+</select>
+
+<div class="categories">
+
+<div class="cat">Romance</div>
+<div class="cat">Fantasy</div>
+<div class="cat">Thriller</div>
+<div class="cat">Horror</div>
+<div class="cat">Mystery</div>
+<div class="cat">Drama</div>
+<div class="cat">Mafia</div>
+<div class="cat">Werewolf</div>
+
+</div>
+
+<button onclick="register()">Complete Registration</button>
+
+<div id="msg" class="msg"></div>
+
+<div class="login-link">
+Already have account?
+<span onclick="goLogin()">Login</span>
+</div>
+
+</div>
+
+<script>
+
+const API="http://127.0.0.1:5000";
+
+let selectedCategories=[];
+
+document.querySelectorAll(".cat").forEach(el=>{
+el.onclick=()=>{
+el.classList.toggle("selected");
+
+const value=el.innerText;
+
+if(selectedCategories.includes(value)){
+selectedCategories = selectedCategories.filter(c=>c!==value);
+}else{
+selectedCategories.push(value);
+}
+};
+});
+
+/* IMAGE PREVIEW */
+
+document.getElementById("profile_pic").addEventListener("change",function(){
+
+const file=this.files[0];
+
+if(!file) return;
+
+const reader=new FileReader();
+
+reader.onload=function(e){
+document.getElementById("avatarPreview").src=e.target.result;
+};
+
+reader.readAsDataURL(file);
+
+});
+
+function validateEmail(email){
+return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function register(){
+
+const name=v("name");
+const username=v("username");
+const email=v("email");
+const password=v("password");
+const confirm=v("confirm");
+const language=v("language");
+
+const msg=document.getElementById("msg");
+
+if(!name||!username||!email||!password||!confirm||!language){
+msg.innerHTML="<span class='error'>Fill all fields</span>";
+return;
+}
+
+if(!validateEmail(email)){
+msg.innerHTML="<span class='error'>Enter valid email</span>";
+return;
+}
+
+if(password.length<8){
+msg.innerHTML="<span class='error'>Password must be at least 8 characters</span>";
+return;
+}
+
+if(password!==confirm){
+msg.innerHTML="<span class='error'>Passwords do not match</span>";
+return;
+}
+
+/* FORMDATA UPLOAD */
+
+const form=new FormData();
+
+form.append("full_name",name);
+form.append("username",username);
+form.append("email",email);
+form.append("password",password);
+form.append("preferred_language",language);
+form.append("preferred_categories",selectedCategories.join(","));
+
+const file=document.getElementById("profile_pic").files[0];
+
+if(file){
+form.append("profile_pic",file);
+}
+
+try{
+
+let res = await fetch(API+"/api/register",{
+method:"POST",
+credentials:"include",
+body:form
+});
+
+let data = await res.json();
+
+if(!res.ok){
+msg.innerHTML="<span class='error'>"+(data.error||"Registration failed")+"</span>";
+return;
+}
+
+/* AUTO LOGIN */
+
+await fetch(API+"/api/login",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+credentials:"include",
+body:JSON.stringify({
+username:username,
+password:password
+})
+});
+
+msg.innerHTML="<span class='success'>Welcome to StorySphere</span>";
+
+setTimeout(()=>{
+window.location.href="reader_dashboard.html";
+},1000);
+
+}catch{
+msg.innerHTML="<span class='error'>Server error</span>";
+}
+
+}
+
+function v(id){
+return document.getElementById(id).value.trim();
+}
+
+function goLogin(){
+window.location.href="../LOGIN.html";
+}
+
+</script>
+
+</body>
+</html>
