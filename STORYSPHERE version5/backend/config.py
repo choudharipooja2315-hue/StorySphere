@@ -1,6 +1,6 @@
 DB_CONFIG = {
     "host": "localhost",
-    "user": "root",
-    "password": "root",
-    "database": "storyspere_v1"
+    "user": "YOUR_USERNAME",
+    "password": "YOUR_PASSWORD",
+    "database": "storysphere_db"
 }
