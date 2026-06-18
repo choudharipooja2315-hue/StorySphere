@@ -82,6 +82,6 @@ python app.py
 * Mobile application support
 * Email verification and password recovery
 
-## Authors
+## Author
 
-## Pooja Choudhari
+### Pooja Choudhari
